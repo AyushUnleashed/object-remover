@@ -18,6 +18,4 @@ __pycache__
 README*
 
 # Sample/test videos (kept in repo for testing but not in Docker)
-sample_*.mp4
-test_*.mp4
-example_*.mp4
+sample_data/*
