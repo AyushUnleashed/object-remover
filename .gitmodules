@@ -1,0 +1,3 @@
+[submodule "MiniMax-Remover"]
+	path = MiniMax-Remover
+	url = https://github.com/zibojia/MiniMax-Remover.git
