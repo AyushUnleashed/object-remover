@@ -1,0 +1,23 @@
+# Git files
+.git
+.gitignore
+.gitmodules
+.github
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+
+# Development files
+.vscode
+.idea
+
+# Documentation
+*.md
+README*
+
+# Sample/test videos (kept in repo for testing but not in Docker)
+sample_*.mp4
+test_*.mp4
+example_*.mp4
