@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 import torch
 from typing import Optional
@@ -9,9 +10,15 @@ from diffusers.utils import export_to_video
 from diffusers.models import AutoencoderKLWan
 from diffusers.schedulers import UniPCMultistepScheduler
 
+# Add minimax_remover to Python path so its internal imports work
+minimax_remover_path = os.path.join(os.path.dirname(__file__), "minimax_remover")
+if minimax_remover_path not in sys.path:
+    sys.path.insert(0, minimax_remover_path)
+
+
 # Import the MiniMax-Remover components (these will be from the submodule)
-from minimax_remover.transformer_minimax_remover import Transformer3DModel
 from minimax_remover.pipeline_minimax_remover import Minimax_Remover_Pipeline
+from minimax_remover.transformer_minimax_remover import Transformer3DModel
 
 # Import our download function
 from download_weights import download_weights, verify_downloads
@@ -52,7 +59,6 @@ class Predictor(BasePredictor):
                 vae=self.vae,
                 transformer=self.transformer,
                 scheduler=self.scheduler,
-                torch_dtype=torch.float16
             ).to(device)
             
             self.device = device

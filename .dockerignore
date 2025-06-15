@@ -4,6 +4,13 @@
 .gitmodules
 .github
 
+# Weights 
+.cache
+
+
+# Env
+.venv
+
 # Python cache
 __pycache__
 *.pyc
