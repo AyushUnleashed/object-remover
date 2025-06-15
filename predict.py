@@ -14,8 +14,8 @@ if minimax_remover_path not in sys.path:
     sys.path.insert(0, minimax_remover_path)
 
 # Now import the MiniMax-Remover components
-from minimax_remover.transformer_minimax_remover import Transformer3DModel
-from minimax_remover.pipeline_minimax_remover import Minimax_Remover_Pipeline
+from transformer_minimax_remover import Transformer3DModel
+from pipeline_minimax_remover import Minimax_Remover_Pipeline
 
 # Import our utility functions and download function
 from utils import (
@@ -71,11 +71,11 @@ class Predictor(BasePredictor):
 
     def predict(
         self,
-        original_video: Path = Input(
+        video: Path = Input(
             description="Input video file with objects to be removed"
         ),
-        mask_video: Path = Input(
-            description="Mask video file where white areas indicate objects to remove. Must have same frame count as original video. See examples: https://replicate.com/ayushunleashed/minimax-remover/readme"
+        mask: Path = Input(
+            description="Mask video file where white areas indicate objects to remove. See examples: https://replicate.com/ayushunleashed/minimax-remover/readme"
         ),
         num_frames: int = Input(
             description="Number of frames to process (-1 = same as original video)",
@@ -123,7 +123,7 @@ class Predictor(BasePredictor):
         
         # Validate inputs and get video info
         print("Validating input videos...")
-        original_info, mask_info = validate_inputs(str(original_video), str(mask_video))
+        original_info, mask_info = validate_inputs(str(video), str(mask))
         
         # Determine actual parameters based on defaults and inputs
         actual_frames = original_info['total_frames'] if num_frames == -1 else min(num_frames, original_info['total_frames'])
@@ -147,16 +147,16 @@ class Predictor(BasePredictor):
         
         # Load video and mask with determined frame count
         print("Loading original video and mask...")
-        video_frames = load_video_from_path(str(original_video), actual_frames)
-        mask_frames = load_mask_from_path(str(mask_video), actual_frames)
+        video_frames = load_video_from_path(str(video), actual_frames)
+        mask_frames = load_mask_from_path(str(mask), actual_frames)
         
         print(f"Video shape: {video_frames.shape}")
         print(f"Mask shape: {mask_frames.shape}")
         
-        # Ensure both have the same number of frames (double check)
+        # Ensure both videos use the same number of frames (take minimum)
         min_frames = min(video_frames.shape[0], mask_frames.shape[0])
         if min_frames != actual_frames:
-            print(f"Adjusting to {min_frames} frames due to loading constraints")
+            print(f"Adjusting to {min_frames} frames based on available video content")
         
         video_frames = video_frames[:min_frames]
         mask_frames = mask_frames[:min_frames]

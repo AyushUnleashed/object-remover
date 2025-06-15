@@ -41,10 +41,9 @@ def validate_inputs(original_video_path: str, mask_video_path: str):
         
         # Check frame count compatibility
         if original_info['total_frames'] != mask_info['total_frames']:
-            raise ValueError(
-                f"Frame count mismatch: Original video has {original_info['total_frames']} frames, "
-                f"mask video has {mask_info['total_frames']} frames. Both videos must have the same number of frames."
-            )
+            min_frames = min(original_info['total_frames'], mask_info['total_frames'])
+            print(f"Frame count difference: Original video has {original_info['total_frames']} frames, "
+                    f"mask video has {mask_info['total_frames']} frames. Will process first {min_frames} frames.")
         
         # Check resolution compatibility (allow some tolerance)
         orig_aspect = original_info['width'] / original_info['height']
