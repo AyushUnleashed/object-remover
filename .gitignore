@@ -6,6 +6,21 @@ __pycache__/
 # C extensions
 *.so
 
+# Development files
+.vscode
+.idea
+
+
+# Weights 
+.cache
+model_weights/*
+
+# COG
+.cog
+
+# files
+output.mp4
+
 # Distribution / packaging
 .Python
 build/
