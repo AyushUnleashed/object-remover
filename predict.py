@@ -4,8 +4,6 @@ import tempfile
 import torch
 from typing import Optional
 from cog import BasePredictor, Input, Path
-import numpy as np
-from decord import VideoReader
 from diffusers.utils import export_to_video
 from diffusers.models import AutoencoderKLWan
 from diffusers.schedulers import UniPCMultistepScheduler
@@ -15,12 +13,15 @@ minimax_remover_path = os.path.join(os.path.dirname(__file__), "minimax_remover"
 if minimax_remover_path not in sys.path:
     sys.path.insert(0, minimax_remover_path)
 
-
-# Import the MiniMax-Remover components (these will be from the submodule)
-from minimax_remover.pipeline_minimax_remover import Minimax_Remover_Pipeline
+# Now import the MiniMax-Remover components
 from minimax_remover.transformer_minimax_remover import Transformer3DModel
+from minimax_remover.pipeline_minimax_remover import Minimax_Remover_Pipeline
 
-# Import our download function
+# Import our utility functions and download function
+from utils import (
+    get_video_info, validate_inputs, load_video_from_path, load_mask_from_path,
+    calculate_safe_resolution, calculate_output_fps, MAX_FPS, MAX_HEIGHT, MAX_WIDTH
+)
 from download_weights import download_weights, verify_downloads
 
 MODEL_CACHE = "./model_weights"
@@ -58,7 +59,7 @@ class Predictor(BasePredictor):
             self.pipe = Minimax_Remover_Pipeline(
                 vae=self.vae,
                 transformer=self.transformer,
-                scheduler=self.scheduler,
+                scheduler=self.scheduler
             ).to(device)
             
             self.device = device
@@ -68,120 +69,95 @@ class Predictor(BasePredictor):
             print(f"Error loading model: {e}")
             raise e
 
-    def load_video_from_path(self, video_path: str, max_frames: int = 81) -> torch.Tensor:
-        """Load video frames from file path and convert to tensor"""
-        try:
-            vr = VideoReader(video_path)
-            total_frames = len(vr)
-            
-            # Take frames evenly spaced if video is longer than max_frames
-            if total_frames > max_frames:
-                frame_indices = np.linspace(0, total_frames - 1, max_frames, dtype=int)
-            else:
-                frame_indices = list(range(min(total_frames, max_frames)))
-            
-            frames = vr.get_batch(frame_indices).asnumpy()
-            
-            # Convert to tensor and normalize to [-1, 1]
-            frames_tensor = torch.from_numpy(frames) / 127.5 - 1.0
-            
-            return frames_tensor
-            
-        except Exception as e:
-            print(f"Error loading video: {e}")
-            raise e
-
-    def load_mask_from_path(self, mask_path: str, max_frames: int = 81) -> torch.Tensor:
-        """Load mask frames from file path and convert to tensor"""
-        try:
-            vr = VideoReader(mask_path)
-            total_frames = len(vr)
-            
-            # Take frames evenly spaced if mask video is longer than max_frames
-            if total_frames > max_frames:
-                frame_indices = np.linspace(0, total_frames - 1, max_frames, dtype=int)
-            else:
-                frame_indices = list(range(min(total_frames, max_frames)))
-            
-            masks = vr.get_batch(frame_indices).asnumpy()
-            
-            # Convert to tensor and process mask
-            masks_tensor = torch.from_numpy(masks)
-            
-            # Take only first channel if RGB, and ensure single channel
-            if masks_tensor.shape[-1] == 3:
-                masks_tensor = masks_tensor[:, :, :, :1]
-            
-            # Threshold the mask
-            masks_tensor[masks_tensor > 20] = 255
-            masks_tensor[masks_tensor < 255] = 0
-            masks_tensor = masks_tensor / 255.0
-            
-            return masks_tensor
-            
-        except Exception as e:
-            print(f"Error loading mask: {e}")
-            raise e
-
     def predict(
         self,
-        video: Path = Input(
-            description="Input video file (MP4 format recommended)"
+        original_video: Path = Input(
+            description="Input video file with objects to be removed"
         ),
-        mask: Path = Input(
-            description="Mask video file where white areas indicate objects to remove"
+        mask_video: Path = Input(
+            description="Mask video file where white areas indicate objects to remove. Must have same frame count as original video. See examples: https://replicate.com/ayushunleashed/minimax-remover/readme"
         ),
         num_frames: int = Input(
-            description="Number of frames to process (max 81)",
-            default=25,
-            ge=1,
-            le=81
+            description="Number of frames to process (-1 = same as original video)",
+            default=-1,
+            ge=-1
         ),
         height: int = Input(
-            description="Output video height",
-            default=480,
-            ge=256,
-            le=1024
+            description=f"Output video height (-1 = same as original video, auto-scaled to max {MAX_HEIGHT}p if needed)",
+            default=-1,
+            ge=-1
         ),
         width: int = Input(
-            description="Output video width", 
-            default=832,
-            ge=256,
-            le=1024
+            description=f"Output video width (-1 = same as original video, auto-scaled to max {MAX_WIDTH}px if needed)", 
+            default=-1,
+            ge=-1
+        ),
+        fps: int = Input(
+            description=f"Output video FPS (-1 = same as original video, max {MAX_FPS} fps)",
+            default=-1,
+            ge=-1,
+            le=MAX_FPS
         ),
         num_inference_steps: int = Input(
-            description="Number of denoising steps",
-            default=12,
+            description="Number of denoising steps (higher = better quality, slower. 6=fast, 8=balanced, 12=high quality)",
+            default=8,
             ge=1,
             le=50
         ),
-        iterations: int = Input(
-            description="Mask dilation iterations for robustness",
-            default=6,
+        mask_dilation_iterations: int = Input(
+            description="Mask expansion iterations for robust removal (higher = more thorough removal)",
+            default=8,
             ge=1,
             le=20
         ),
         seed: Optional[int] = Input(
-            description="Random seed. Leave blank to randomize the seed",
+            description="Random seed for reproducible results (leave blank for random)",
             default=None
         ),
     ) -> Path:
-        """Run video object removal"""
+        """Run video object removal with smart defaults"""
         
         if seed is None:
             seed = int.from_bytes(os.urandom(2), "big")
         print(f"Using seed: {seed}")
         
-        # Load video and mask
-        print("Loading video and mask...")
-        video_frames = self.load_video_from_path(str(video), num_frames)
-        mask_frames = self.load_mask_from_path(str(mask), num_frames)
+        # Validate inputs and get video info
+        print("Validating input videos...")
+        original_info, mask_info = validate_inputs(str(original_video), str(mask_video))
+        
+        # Determine actual parameters based on defaults and inputs
+        actual_frames = original_info['total_frames'] if num_frames == -1 else min(num_frames, original_info['total_frames'])
+        
+        # Determine resolution
+        if height == -1 or width == -1:
+            actual_height, actual_width = calculate_safe_resolution(
+                original_info['height'], 
+                original_info['width']
+            )
+        else:
+            actual_height, actual_width = calculate_safe_resolution(height, width)
+        
+        # Determine FPS
+        output_fps = calculate_output_fps(original_info['fps'], fps)
+        
+        print(f"📹 Processing {actual_frames} frames at {actual_width}x{actual_height}")
+        print(f"🎬 Output FPS: {output_fps} (original: {original_info['fps']:.1f})")
+        print(f"⚙️ Quality: {num_inference_steps} inference steps")
+        print(f"🎯 Mask dilation: {mask_dilation_iterations} iterations")
+        
+        # Load video and mask with determined frame count
+        print("Loading original video and mask...")
+        video_frames = load_video_from_path(str(original_video), actual_frames)
+        mask_frames = load_mask_from_path(str(mask_video), actual_frames)
         
         print(f"Video shape: {video_frames.shape}")
         print(f"Mask shape: {mask_frames.shape}")
         
-        # Ensure both have the same number of frames
+        # Ensure both have the same number of frames (double check)
         min_frames = min(video_frames.shape[0], mask_frames.shape[0])
+        if min_frames != actual_frames:
+            print(f"Adjusting to {min_frames} frames due to loading constraints")
+        
         video_frames = video_frames[:min_frames]
         mask_frames = mask_frames[:min_frames]
         
@@ -194,22 +170,28 @@ class Predictor(BasePredictor):
                 images=video_frames,
                 masks=mask_frames,
                 num_frames=min_frames,
-                height=height,
-                width=width,
+                height=actual_height,
+                width=actual_width,
                 num_inference_steps=num_inference_steps,
                 generator=generator,
-                iterations=iterations
+                iterations=mask_dilation_iterations
             ).frames[0]
             
             print("Inference completed successfully!")
             
         except Exception as e:
             print(f"Error during inference: {e}")
+            if "memory" in str(e).lower() or "cuda" in str(e).lower():
+                raise RuntimeError(
+                    f"GPU memory error. Try reducing: num_frames (current: {min_frames}), "
+                    f"resolution (current: {actual_width}x{actual_height}), or num_inference_steps (current: {num_inference_steps})"
+                )
             raise e
         
-        # Save output video
+        # Save output video with calculated FPS
         output_path = Path(tempfile.mkdtemp()) / "output.mp4"
-        export_to_video(result, str(output_path), fps=16)
+        export_to_video(result, str(output_path), fps=output_fps)
         
-        print(f"Video saved to: {output_path}")
+        print(f"✅ Video saved to: {output_path}")
+        print(f"📊 Output: {len(result)} frames at {output_fps} FPS")
         return output_path
