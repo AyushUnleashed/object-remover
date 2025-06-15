@@ -185,8 +185,3 @@ If you use this model, please cite the original MiniMax-Remover paper:
   year={2024}
 }
 ```
-
-## Support
-
-- [Cog Documentation](https://cog.run/)
-- [Replicate Documentation](https://replicate.com/docs)
