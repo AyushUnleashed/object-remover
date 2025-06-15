@@ -2,6 +2,11 @@
 
 This repository contains a Cog wrapper for the MiniMax-Remover video object removal model, deployed on Replicate at `ayushunleashed/minimax-remover`.
 
+## 🚀 Try it on Replicate
+
+**Model API**: [`ayushunleashed/minimax-remover`](https://replicate.com/ayushunleashed/minimax-remover)
+
+
 ## Overview
 
 MiniMax-Remover is a fast and effective video object remover based on minimax optimization. This Cog wrapper provides a convenient API for running the model on Replicate with video and mask inputs.
