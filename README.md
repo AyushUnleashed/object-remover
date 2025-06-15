@@ -1,6 +1,6 @@
 # MiniMax-Remover Cog Wrapper
 
-This repository contains a Cog wrapper for the MiniMax-Remover video object removal model, deployed on Replicate at `ayushunleashed/minimax-remover`.
+This repository contains a Cog wrapper for the MiniMax-Remover video object removal model.
 
 ## 🚀 Try it on Replicate
 
