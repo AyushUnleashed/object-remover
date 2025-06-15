@@ -2,12 +2,10 @@ import numpy as np
 import torch
 from decord import VideoReader
 
-# Constants - modify here to change limits across the application
-MAX_FPS = 30
 DEFAULT_FPS = 16
 MIN_DIMENSION = 64
-MAX_HEIGHT = 1080  # 1080p height limit
-MAX_WIDTH = 1920   # Typical 1080p width limit for 16:9
+MAX_HEIGHT = 1920 
+MAX_WIDTH = 1920   
 
 
 def get_video_info(video_path: str):
@@ -162,9 +160,9 @@ def calculate_output_fps(original_fps: float, requested_fps: int) -> int:
     """Calculate output FPS with constraints"""
     if requested_fps == -1:
         # Use original FPS but clamp to MAX_FPS
-        output_fps = min(MAX_FPS, max(1, int(original_fps)))
+        output_fps =max(1, int(original_fps))
     else:
         # Use requested FPS but clamp to MAX_FPS
-        output_fps = min(MAX_FPS, max(1, requested_fps))
+        output_fps = max(1, requested_fps)
     
     return output_fps
