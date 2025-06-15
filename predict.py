@@ -20,7 +20,7 @@ from pipeline_minimax_remover import Minimax_Remover_Pipeline
 # Import our utility functions and download function
 from utils import (
     get_video_info, validate_inputs, load_video_from_path, load_mask_from_path,
-    calculate_safe_resolution, calculate_output_fps, MAX_FPS, MAX_HEIGHT, MAX_WIDTH
+    calculate_safe_resolution, calculate_output_fps, MAX_HEIGHT, MAX_WIDTH
 )
 from download_weights import download_weights, verify_downloads
 
@@ -83,7 +83,7 @@ class Predictor(BasePredictor):
             ge=-1
         ),
         height: int = Input(
-            description=f"Output video height (-1 = same as original video, auto-scaled to max {MAX_HEIGHT}p if needed)",
+            description=f"Output video height (-1 = same as original video, auto-scaled to max {MAX_HEIGHT}px if needed)",
             default=-1,
             ge=-1
         ),
@@ -93,14 +93,13 @@ class Predictor(BasePredictor):
             ge=-1
         ),
         fps: int = Input(
-            description=f"Output video FPS (-1 = same as original video, max {MAX_FPS} fps)",
+            description=f"Output video FPS (-1 = same as original video)",
             default=-1,
             ge=-1,
-            le=MAX_FPS
         ),
         num_inference_steps: int = Input(
             description="Number of denoising steps (higher = better quality, slower. 6=fast, 8=balanced, 12=high quality)",
-            default=8,
+            default=6,
             ge=1,
             le=50
         ),
