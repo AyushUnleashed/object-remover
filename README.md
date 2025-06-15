@@ -6,6 +6,8 @@ This repository contains a Cog wrapper for the MiniMax-Remover video object remo
 
 MiniMax-Remover is a fast and effective video object remover based on minimax optimization. This Cog wrapper provides a convenient API for running the model on Replicate with video and mask inputs.
 
+Examples Video: <a href="https://www.youtube.com/watch?v=KaU5yNl6CTc"><img alt="YouTube" src="https://img.shields.io/badge/Youtube-video-ff0000"></a>
+
 ## Repository Structure
 
 ```
@@ -24,6 +26,10 @@ object-remover/
 │   └── racoon_mask.mp4        # Mask video (white areas to remove)
 └── README.md                  # This file
 ```
+
+## Original Repository
+
+This wrapper is build for [MiniMax-Remover](https://github.com/zibojia/MiniMax-Remover) project. The original repository contains the core implementation which is implemented as sub module here.
 
 ## Local Testing with Cog
 
@@ -54,11 +60,12 @@ sudo chmod +x /usr/local/bin/cog
 ### 3. Test Locally
 
 ```bash
-# Build the Docker image (weights download automatically during setup)
-cog build
 
-# Or manually download weights first (optional)
+# manually download weights first (optional)
 python download_weights.py
+
+# Build the Docker image
+cog build
 
 # Test with sample videos
 cog predict -i video=@sample_data/racoon_video.mp4 -i mask=@sample_data/racoon_mask.mp4
@@ -72,15 +79,31 @@ cog predict -i video=@sample_data/racoon_video.mp4 -i mask=@sample_data/racoon_m
 - **Mask**: Video file where white areas indicate objects to remove
 - Both video and mask should have the same frame count
 
+### How to Generate Mask Videos
+
+If you don't have a mask video yet, you can create one using the following workflow:
+
+#### Requirements
+1. Original video you want to remove objects from
+2. Binary masked video of the object(s) you want to remove
+
+#### Step-by-Step Process
+1. **Extract first frame**: Use [Frame Extractor](https://replicate.com/lucataco/frame-extractor) to get the first frame of your original video
+2. **Generate mask**: Use [SAM-2](https://replicate.com/meta/sam-2) to create multiple masked images from the first frame
+3. **Select target mask**: Choose the mask that covers the subject(s) you want to remove
+4. **Create mask video**: Use [X-MEM](https://replicate.com/jd7h/xmem) with your selected masked image and original video to generate the complete masked video
+
+This workflow ensures you have a properly formatted mask video that tracks your target object(s) throughout all frames.
+
 ### API Parameters
 
 - `video` (required): Input video file
 - `mask` (required): Mask video file  
-- `num_frames`: Number of frames to process (1-81, default: 25)
-- `height`: Output video height (256-1024, default: 480)
-- `width`: Output video width (256-1024, default: 832)
-- `num_inference_steps`: Denoising steps (1-50, default: 12)
-- `iterations`: Mask dilation iterations (1-20, default: 6)
+- `num_frames`: Number of frames to process 
+- `height`: Output video height 
+- `width`: Output video width 
+- `num_inference_steps`: Denoising steps
+- `iterations`: Mask dilation iterations 
 - `seed`: Random seed (optional)
 
 ### Example Usage
@@ -97,12 +120,6 @@ cog predict \
 cog predict \
     -i video=@sample_data/racoon_video.mp4 \
     -i mask=@sample_data/racoon_mask.mp4 \
-    -i num_frames=30 \
-    -i height=512 \
-    -i width=768 \
-    -i num_inference_steps=8 \
-    -i iterations=4 \
-    -i seed=42
 ```
 
 #### Python API (Using Deployed Model)
@@ -131,7 +148,6 @@ print(f"Output video: {output}")
 - **Architecture**: Simplified DiT (Diffusion Transformer) with minimax optimization
 - **Inference Steps**: 6-12 steps (much faster than traditional diffusion models)
 - **Memory Requirements**: ~8GB GPU memory for typical usage
-- **Supported Resolutions**: Up to 1024x1024 pixels
 - **Model Weights**: Downloaded automatically from Hugging Face during first setup
 
 ## Performance Tips
@@ -148,15 +164,6 @@ print(f"Output video: {output}")
 1. **Out of Memory**: Reduce `num_frames`, `height`, or `width`
 2. **Slow Performance**: Reduce `num_inference_steps` to 6-8
 3. **Poor Quality**: Increase `num_inference_steps` or improve mask quality
-
-### Debug Mode
-
-Enable verbose logging by setting environment variable:
-
-```bash
-export COG_LOG_LEVEL=debug
-cog predict -i video=@sample_data/racoon_video.mp4 -i mask=@sample_data/racoon_mask.mp4
-```
 
 ## License
 
